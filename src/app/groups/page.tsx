@@ -8,10 +8,12 @@ export default async function GroupsPage() {
   if (!session?.user) redirect("/sign-in");
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <h1 className="text-lg font-semibold">SplitSEAD</h1>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/60 backdrop-blur-sm sticky top-0 z-10">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          <span className="text-base font-semibold tracking-tight text-foreground">
+            SplitSEAD
+          </span>
           <div className="flex items-center gap-3">
             {session.user.image && (
               <Image
@@ -19,10 +21,12 @@ export default async function GroupsPage() {
                 alt={session.user.name ?? ""}
                 width={32}
                 height={32}
-                className="rounded-full"
+                className="rounded-full ring-2 ring-border"
               />
             )}
-            <span className="text-sm text-zinc-600">{session.user.name}</span>
+            <span className="text-sm text-muted-foreground hidden sm:block">
+              {session.user.name}
+            </span>
             <form
               action={async () => {
                 "use server";
@@ -37,11 +41,16 @@ export default async function GroupsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-12">
-        <h2 className="text-xl font-semibold">Your groups</h2>
-        <p className="mt-8 text-center text-zinc-400">
-          No groups yet. Create one to get started.
-        </p>
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-foreground">Your groups</h2>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <p className="text-muted-foreground text-sm">
+            No groups yet. Create one to get started.
+          </p>
+        </div>
       </main>
     </div>
   );

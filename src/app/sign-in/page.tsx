@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-sm rounded-xl border bg-white p-8 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-xl shadow-black/40">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">SplitSEAD</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            SplitSEAD
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Split expenses with friends
           </p>
         </div>
