@@ -151,15 +151,14 @@ export const payments = pgTable("payment", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
-export const paymentSplits = pgTable(
-  "payment_split",
-  {
-    paymentId: text("payment_id")
-      .notNull()
-      .references(() => payments.id, { onDelete: "cascade" }),
-    userId: text("user_id").references(() => users.id),
-    ghostId: text("ghost_id").references(() => ghostParticipants.id),
-    amountInCents: integer("amount_in_cents").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.paymentId, t.userId, t.ghostId] })]
-);
+export const paymentSplits = pgTable("payment_split", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  paymentId: text("payment_id")
+    .notNull()
+    .references(() => payments.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => users.id),
+  ghostId: text("ghost_id").references(() => ghostParticipants.id),
+  amountInCents: integer("amount_in_cents").notNull(),
+});
