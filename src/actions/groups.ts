@@ -2,9 +2,9 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { ghostParticipants, groupMemberships, groups, invites, users } from "@/db/schema";
+import { ghostParticipants, groupMemberships, groups, invites, payments, paymentSplits, users } from "@/db/schema";
 import { sendGroupInviteEmail } from "@/lib/email";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -119,6 +119,73 @@ export async function getGroupWithMembers(groupId: string) {
     .where(eq(invites.groupId, groupId));
 
   return { group, members: memberships.map((m) => m.user), ghosts, invite };
+}
+
+export async function joinGroupAsNew(groupId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const [existing] = await db
+    .select()
+    .from(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, session.user.id)
+      )
+    );
+
+  if (!existing) {
+    await db.insert(groupMemberships).values({
+      groupId,
+      userId: session.user.id,
+      role: "member",
+    });
+  }
+
+  redirect(`/groups/${groupId}`);
+}
+
+export async function joinGroupAsGhost(groupId: string, ghostId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = session.user.id;
+
+  await db.transaction(async (tx) => {
+    // Rewrite any payment splits from ghost → this user
+    await tx
+      .update(paymentSplits)
+      .set({ userId, ghostId: null })
+      .where(eq(paymentSplits.ghostId, ghostId));
+
+    // Rewrite any payments where this ghost was the payer
+    await tx
+      .update(payments)
+      .set({ payerUserId: userId, payerGhostId: null })
+      .where(eq(payments.payerGhostId, ghostId));
+
+    // Delete the ghost
+    await tx
+      .delete(ghostParticipants)
+      .where(eq(ghostParticipants.id, ghostId));
+
+    // Add as real member if not already
+    const [existing] = await tx
+      .select()
+      .from(groupMemberships)
+      .where(
+        and(
+          eq(groupMemberships.groupId, groupId),
+          eq(groupMemberships.userId, userId)
+        )
+      );
+
+    if (!existing) {
+      await tx.insert(groupMemberships).values({ groupId, userId, role: "member" });
+    }
+  });
+
+  redirect(`/groups/${groupId}`);
 }
 
 export async function getUserGroups() {
