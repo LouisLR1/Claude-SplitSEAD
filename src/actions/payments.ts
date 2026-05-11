@@ -38,29 +38,27 @@ export async function createPayment(
   const participantIds = data.participants.map((p) => p.id);
   const splits = splitEqually(data.amountInCents, participantIds);
 
-  await db.transaction(async (tx) => {
-    const [payment] = await tx
-      .insert(payments)
-      .values({
-        groupId,
-        payerUserId: data.payerUserId ?? null,
-        payerGhostId: data.payerGhostId ?? null,
-        amountInCents: data.amountInCents,
-        description: data.description,
-        category: data.category as "Groceries" | "Restaurants" | "Transport" | "Rent" | "Utilities" | "Entertainment" | "Other" | "Settlement",
-        date: new Date(data.date),
-      })
-      .returning();
+  const [payment] = await db
+    .insert(payments)
+    .values({
+      groupId,
+      payerUserId: data.payerUserId ?? null,
+      payerGhostId: data.payerGhostId ?? null,
+      amountInCents: data.amountInCents,
+      description: data.description,
+      category: data.category as "Groceries" | "Restaurants" | "Transport" | "Rent" | "Utilities" | "Entertainment" | "Other" | "Settlement",
+      date: new Date(data.date),
+    })
+    .returning();
 
-    const splitRows = data.participants.map((p) => ({
-      paymentId: payment.id,
-      userId: p.type === "user" ? p.id : null,
-      ghostId: p.type === "ghost" ? p.id : null,
-      amountInCents: splits.get(p.id) ?? 0,
-    }));
+  const splitRows = data.participants.map((p) => ({
+    paymentId: payment.id,
+    userId: p.type === "user" ? p.id : null,
+    ghostId: p.type === "ghost" ? p.id : null,
+    amountInCents: splits.get(p.id) ?? 0,
+  }));
 
-    await tx.insert(paymentSplits).values(splitRows);
-  });
+  await db.insert(paymentSplits).values(splitRows);
 
   return { ok: true };
 }

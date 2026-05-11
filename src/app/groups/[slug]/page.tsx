@@ -54,13 +54,7 @@ export default async function GroupPage({
     allBalancesZero,
   } = data;
 
-  let payments: Awaited<ReturnType<typeof getGroupPayments>> = [];
-  try {
-    payments = await getGroupPayments(groupId);
-  } catch (e) {
-    console.error("[GroupPage] getGroupPayments failed:", e);
-    throw e;
-  }
+  const payments = await getGroupPayments(groupId);
 
   const appUrl = getAppUrl();
   const joinUrl = invite ? `${appUrl}/join/${invite.token}` : null;

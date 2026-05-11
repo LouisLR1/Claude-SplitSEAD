@@ -210,39 +210,33 @@ export async function joinGroupAsGhost(groupId: string, ghostId: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
   const userId = session.user.id;
 
-  await db.transaction(async (tx) => {
-    // Rewrite any payment splits from ghost → this user
-    await tx
-      .update(paymentSplits)
-      .set({ userId, ghostId: null })
-      .where(eq(paymentSplits.ghostId, ghostId));
+  await db
+    .update(paymentSplits)
+    .set({ userId, ghostId: null })
+    .where(eq(paymentSplits.ghostId, ghostId));
 
-    // Rewrite any payments where this ghost was the payer
-    await tx
-      .update(payments)
-      .set({ payerUserId: userId, payerGhostId: null })
-      .where(eq(payments.payerGhostId, ghostId));
+  await db
+    .update(payments)
+    .set({ payerUserId: userId, payerGhostId: null })
+    .where(eq(payments.payerGhostId, ghostId));
 
-    // Delete the ghost
-    await tx
-      .delete(ghostParticipants)
-      .where(eq(ghostParticipants.id, ghostId));
+  await db
+    .delete(ghostParticipants)
+    .where(eq(ghostParticipants.id, ghostId));
 
-    // Add as real member if not already
-    const [existing] = await tx
-      .select()
-      .from(groupMemberships)
-      .where(
-        and(
-          eq(groupMemberships.groupId, groupId),
-          eq(groupMemberships.userId, userId)
-        )
-      );
+  const [existing] = await db
+    .select()
+    .from(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      )
+    );
 
-    if (!existing) {
-      await tx.insert(groupMemberships).values({ groupId, userId, role: "member" });
-    }
-  });
+  if (!existing) {
+    await db.insert(groupMemberships).values({ groupId, userId, role: "member" });
+  }
 
   redirect(`/groups/${await getGroupSlug(groupId)}`);
 }
