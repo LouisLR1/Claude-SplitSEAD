@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import { AddGhostDialog } from "@/components/add-ghost-dialog";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ChevronLeft, Ghost, ShieldCheck, Trash2, UserMinus } from "lucide-react";
 
 export default async function GroupPage({
@@ -138,21 +139,24 @@ export default async function GroupPage({
                     )}
 
                     {canRemove && (
-                      <form
+                      <ConfirmDialog
+                        title="Remove member"
+                        description={`Remove ${user.name} from "${group.name}"? They will lose access to this group.`}
+                        confirmLabel="Remove"
                         action={async () => {
                           "use server";
                           await removeMember(group.id, user.id);
                         }}
-                      >
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-destructive hover:text-destructive h-7 px-2"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </Button>
-                      </form>
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-destructive hover:text-destructive h-7 px-2"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </Button>
+                        }
+                      />
                     )}
                   </div>
                 </div>
@@ -186,21 +190,24 @@ export default async function GroupPage({
                     </Badge>
 
                     {canRemove && (
-                      <form
+                      <ConfirmDialog
+                        title="Remove guest"
+                        description={`Remove "${ghost.name}" from this group? This cannot be undone.`}
+                        confirmLabel="Remove"
                         action={async () => {
                           "use server";
                           await removeGhostFromGroup(group.id, ghost.id);
                         }}
-                      >
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-destructive hover:text-destructive h-7 px-2"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </Button>
-                      </form>
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-destructive hover:text-destructive h-7 px-2"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </Button>
+                        }
+                      />
                     )}
                   </div>
                 </div>
@@ -252,23 +259,26 @@ export default async function GroupPage({
                     : "Settle all balances before deleting."}
                 </p>
               </div>
-              <form
+              <ConfirmDialog
+                title="Delete group"
+                description={`Permanently delete "${group.name}"? All payment history will be lost and this cannot be undone.`}
+                confirmLabel="Delete group"
                 action={async () => {
                   "use server";
                   await deleteGroup(group.id);
                 }}
-              >
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  size="sm"
-                  disabled={!allBalancesZero}
-                  className="shrink-0"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete group
-                </Button>
-              </form>
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={!allBalancesZero}
+                    className="shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete group
+                  </Button>
+                }
+              />
             </div>
           </section>
         )}
