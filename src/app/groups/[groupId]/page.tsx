@@ -2,13 +2,19 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getGroupWithMembers } from "@/actions/groups";
+import {
+  getGroupWithMembers,
+  setMemberRole,
+  removeMember,
+  removeGhostFromGroup,
+  deleteGroup,
+} from "@/actions/groups";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import { AddGhostDialog } from "@/components/add-ghost-dialog";
 import { CopyLinkButton } from "@/components/copy-link-button";
-import { ChevronLeft, Ghost } from "lucide-react";
+import { ChevronLeft, Ghost, ShieldCheck, Trash2, UserMinus } from "lucide-react";
 
 export default async function GroupPage({
   params,
@@ -27,7 +33,18 @@ export default async function GroupPage({
     redirect("/groups");
   }
 
-  const { group, members, ghosts, invite } = data;
+  const {
+    group,
+    memberships,
+    ghosts,
+    invite,
+    isAdmin,
+    currentUserId,
+    memberBalances,
+    ghostBalances,
+    allBalancesZero,
+  } = data;
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const joinUrl = invite ? `${appUrl}/join/${invite.token}` : null;
 
@@ -53,53 +70,142 @@ export default async function GroupPage({
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-foreground">Members</h2>
-            <div className="flex gap-2 flex-wrap justify-end">
-              <InviteMemberDialog groupId={group.id} />
-              <AddGhostDialog groupId={group.id} />
-            </div>
+            {isAdmin && (
+              <div className="flex gap-2 flex-wrap justify-end">
+                <InviteMemberDialog groupId={group.id} />
+                <AddGhostDialog groupId={group.id} />
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
-            {members.map((member) => (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-3">
-                {member.image ? (
-                  <Image
-                    src={member.image}
-                    alt={member.name ?? ""}
-                    width={32}
-                    height={32}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
-                    {member.name?.[0]?.toUpperCase() ?? "?"}
-                  </div>
-                )}
-                <span className="text-sm text-foreground">{member.name}</span>
-                {member.id === session.user?.id && (
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    You
-                  </Badge>
-                )}
-              </div>
-            ))}
+            {memberships.map(({ user, role }) => {
+              const isSelf = user.id === currentUserId;
+              const balance = memberBalances[user.id] ?? 0;
+              const canRemove = isAdmin && !isSelf && balance === 0;
 
-            {ghosts.map((ghost) => (
-              <div key={ghost.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                  <Ghost className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <span className="text-sm text-foreground">{ghost.name}</span>
-                  {ghost.email && (
-                    <p className="text-xs text-muted-foreground">{ghost.email}</p>
+              return (
+                <div key={user.id} className="flex items-center gap-3 px-4 py-3">
+                  {user.image ? (
+                    <Image
+                      src={user.image}
+                      alt={user.name ?? ""}
+                      width={32}
+                      height={32}
+                      className="rounded-full shrink-0"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary shrink-0">
+                      {user.name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
                   )}
+
+                  <span className="text-sm text-foreground flex-1 min-w-0 truncate">
+                    {user.name}
+                    {isSelf && (
+                      <span className="text-muted-foreground"> (you)</span>
+                    )}
+                  </span>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {role === "admin" && (
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        <ShieldCheck className="h-3 w-3" />
+                        Admin
+                      </Badge>
+                    )}
+
+                    {isAdmin && !isSelf && (
+                      <form
+                        action={async () => {
+                          "use server";
+                          await setMemberRole(
+                            group.id,
+                            user.id,
+                            role === "admin" ? "member" : "admin"
+                          );
+                        }}
+                      >
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+                        >
+                          {role === "admin" ? "Remove admin" : "Make admin"}
+                        </Button>
+                      </form>
+                    )}
+
+                    {canRemove && (
+                      <form
+                        action={async () => {
+                          "use server";
+                          await removeMember(group.id, user.id);
+                        }}
+                      >
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-destructive hover:text-destructive h-7 px-2"
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </Button>
+                      </form>
+                    )}
+                  </div>
                 </div>
-                <Badge variant="outline" className="ml-auto text-xs text-muted-foreground">
-                  Guest
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
+
+            {ghosts.map((ghost) => {
+              const balance = ghostBalances[ghost.id] ?? 0;
+              const canRemove = isAdmin && balance === 0;
+
+              return (
+                <div key={ghost.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Ghost className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-foreground">{ghost.name}</span>
+                    {ghost.email && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {ghost.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Guest
+                    </Badge>
+
+                    {canRemove && (
+                      <form
+                        action={async () => {
+                          "use server";
+                          await removeGhostFromGroup(group.id, ghost.id);
+                        }}
+                      >
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-destructive hover:text-destructive h-7 px-2"
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -130,6 +236,42 @@ export default async function GroupPage({
             </p>
           </div>
         </section>
+
+        {/* Danger zone — admin only */}
+        {isAdmin && (
+          <section>
+            <h2 className="font-semibold text-foreground mb-4">Danger zone</h2>
+            <div className="rounded-xl border border-destructive/30 bg-card px-4 py-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Delete this group
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {allBalancesZero
+                    ? "All balances are settled — you can delete this group."
+                    : "Settle all balances before deleting."}
+                </p>
+              </div>
+              <form
+                action={async () => {
+                  "use server";
+                  await deleteGroup(group.id);
+                }}
+              >
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  size="sm"
+                  disabled={!allBalancesZero}
+                  className="shrink-0"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete group
+                </Button>
+              </form>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

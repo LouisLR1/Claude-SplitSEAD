@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { ghostParticipants, groupMemberships, groups, invites, payments, paymentSplits, users } from "@/db/schema";
 import { sendGroupInviteEmail } from "@/lib/email";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -95,15 +95,11 @@ export async function getGroupWithMembers(groupId: string) {
 
   await assertMember(groupId, session.user.id);
 
-  const [group] = await db
-    .select()
-    .from(groups)
-    .where(eq(groups.id, groupId));
-
+  const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   if (!group) throw new Error("Group not found");
 
   const memberships = await db
-    .select({ user: users })
+    .select({ user: users, role: groupMemberships.role })
     .from(groupMemberships)
     .innerJoin(users, eq(groupMemberships.userId, users.id))
     .where(eq(groupMemberships.groupId, groupId));
@@ -118,7 +114,41 @@ export async function getGroupWithMembers(groupId: string) {
     .from(invites)
     .where(eq(invites.groupId, groupId));
 
-  return { group, members: memberships.map((m) => m.user), ghosts, invite };
+  const currentUserId = session.user.id;
+  const currentMembership = memberships.find((m) => m.user.id === currentUserId);
+  const isAdmin = currentMembership?.role === "admin";
+
+  const memberBalances = Object.fromEntries(
+    await Promise.all(
+      memberships.map(async ({ user }) => [
+        user.id,
+        await getUserNetBalanceCents(groupId, user.id),
+      ])
+    )
+  );
+
+  const ghostBalances = Object.fromEntries(
+    await Promise.all(
+      ghosts.map(async (g) => [
+        g.id,
+        await getGhostNetBalanceCents(groupId, g.id),
+      ])
+    )
+  );
+
+  const allBalancesZero = await allGroupBalancesZero(groupId);
+
+  return {
+    group,
+    memberships,
+    ghosts,
+    invite,
+    isAdmin,
+    currentUserId,
+    memberBalances,
+    ghostBalances,
+    allBalancesZero,
+  };
 }
 
 export async function joinGroupAsNew(groupId: string) {
@@ -186,6 +216,143 @@ export async function joinGroupAsGhost(groupId: string, ghostId: string) {
   });
 
   redirect(`/groups/${groupId}`);
+}
+
+// ─── Balance helpers ──────────────────────────────────────────────────────────
+
+async function getUserNetBalanceCents(groupId: string, userId: string): Promise<number> {
+  const [paid] = await db
+    .select({ total: sql<number>`coalesce(sum(${payments.amountInCents}), 0)` })
+    .from(payments)
+    .where(and(eq(payments.groupId, groupId), eq(payments.payerUserId, userId)));
+
+  const [owed] = await db
+    .select({ total: sql<number>`coalesce(sum(${paymentSplits.amountInCents}), 0)` })
+    .from(paymentSplits)
+    .innerJoin(payments, eq(paymentSplits.paymentId, payments.id))
+    .where(and(eq(payments.groupId, groupId), eq(paymentSplits.userId, userId)));
+
+  return Number(paid.total) - Number(owed.total);
+}
+
+async function getGhostNetBalanceCents(groupId: string, ghostId: string): Promise<number> {
+  const [paid] = await db
+    .select({ total: sql<number>`coalesce(sum(${payments.amountInCents}), 0)` })
+    .from(payments)
+    .where(and(eq(payments.groupId, groupId), eq(payments.payerGhostId, ghostId)));
+
+  const [owed] = await db
+    .select({ total: sql<number>`coalesce(sum(${paymentSplits.amountInCents}), 0)` })
+    .from(paymentSplits)
+    .innerJoin(payments, eq(paymentSplits.paymentId, payments.id))
+    .where(and(eq(payments.groupId, groupId), eq(paymentSplits.ghostId, ghostId)));
+
+  return Number(paid.total) - Number(owed.total);
+}
+
+async function allGroupBalancesZero(groupId: string): Promise<boolean> {
+  const members = await db
+    .select({ userId: groupMemberships.userId })
+    .from(groupMemberships)
+    .where(eq(groupMemberships.groupId, groupId));
+
+  const ghosts = await db
+    .select({ id: ghostParticipants.id })
+    .from(ghostParticipants)
+    .where(eq(ghostParticipants.groupId, groupId));
+
+  for (const { userId } of members) {
+    if ((await getUserNetBalanceCents(groupId, userId)) !== 0) return false;
+  }
+  for (const { id } of ghosts) {
+    if ((await getGhostNetBalanceCents(groupId, id)) !== 0) return false;
+  }
+  return true;
+}
+
+// ─── Admin actions ────────────────────────────────────────────────────────────
+
+export async function setMemberRole(
+  groupId: string,
+  targetUserId: string,
+  role: "admin" | "member"
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await assertAdmin(groupId, session.user.id);
+
+  await db
+    .update(groupMemberships)
+    .set({ role })
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, targetUserId)
+      )
+    );
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function removeMember(groupId: string, targetUserId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await assertAdmin(groupId, session.user.id);
+
+  const balance = await getUserNetBalanceCents(groupId, targetUserId);
+  if (balance !== 0) throw new Error("Cannot remove a member with a non-zero balance");
+
+  await db
+    .delete(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, targetUserId)
+      )
+    );
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function removeGhostFromGroup(groupId: string, ghostId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await assertAdmin(groupId, session.user.id);
+
+  const balance = await getGhostNetBalanceCents(groupId, ghostId);
+  if (balance !== 0) throw new Error("Cannot remove a guest with a non-zero balance");
+
+  await db
+    .delete(ghostParticipants)
+    .where(eq(ghostParticipants.id, ghostId));
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function deleteGroup(groupId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await assertAdmin(groupId, session.user.id);
+
+  if (!(await allGroupBalancesZero(groupId))) {
+    throw new Error("Cannot delete a group with unsettled balances");
+  }
+
+  await db.delete(groups).where(eq(groups.id, groupId));
+  redirect("/groups");
+}
+
+async function assertAdmin(groupId: string, userId: string) {
+  const [membership] = await db
+    .select()
+    .from(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      )
+    );
+  if (membership?.role !== "admin") throw new Error("Admin access required");
 }
 
 export async function getUserGroups() {
