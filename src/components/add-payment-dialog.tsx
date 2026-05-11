@@ -108,6 +108,8 @@ export function AddPaymentDialog({
       setOpen(false);
       resetForm();
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setPending(false);
     }
