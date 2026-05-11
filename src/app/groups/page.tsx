@@ -65,7 +65,7 @@ export default async function GroupsPage() {
             {userGroups.map((group) => (
               <Link
                 key={group.id}
-                href={`/groups/${group.id}`}
+                href={`/groups/${group.slug}`}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 hover:bg-accent transition-colors"
               >
                 <div>

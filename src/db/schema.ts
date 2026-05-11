@@ -88,6 +88,7 @@ export const groups = pgTable("group", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
+  slug: text("slug").notNull().unique().$defaultFn(() => crypto.randomUUID()),
   currency: text("currency").notNull().default("EUR"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   createdById: text("created_by_id")

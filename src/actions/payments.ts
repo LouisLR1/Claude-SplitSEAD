@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { ghostParticipants, groupMemberships, payments, paymentSplits, users } from "@/db/schema";
+import { ghostParticipants, groupMemberships, groups, payments, paymentSplits, users } from "@/db/schema";
 import { splitEqually } from "@/lib/splits";
 import { asc, and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -77,7 +77,7 @@ export async function deletePayment(
     and(eq(payments.id, paymentId), eq(payments.groupId, groupId))
   );
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 export async function getGroupPayments(groupId: string) {
@@ -108,10 +108,15 @@ export async function getGroupPayments(groupId: string) {
     description: p.description,
     amountInCents: p.amountInCents,
     category: p.category,
-    date: p.date.toISOString(),
+    date: new Date(p.date).toISOString(),
     payerUser: p.payerUserId ? (userMap.get(p.payerUserId) ?? null) : null,
     payerGhost: p.payerGhostId ? (ghostMap.get(p.payerGhostId) ?? null) : null,
   }));
+}
+
+async function getGroupSlug(groupId: string): Promise<string> {
+  const [g] = await db.select({ slug: groups.slug }).from(groups).where(eq(groups.id, groupId));
+  return g?.slug ?? groupId;
 }
 
 async function assertMember(groupId: string, userId: string) {

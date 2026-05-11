@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  getGroupIdFromSlug,
   getGroupWithMembers,
   setMemberRole,
   removeMember,
@@ -25,12 +26,14 @@ import { ChevronLeft, Ghost, ShieldCheck, Trash2, UserMinus } from "lucide-react
 export default async function GroupPage({
   params,
 }: {
-  params: Promise<{ groupId: string }>;
+  params: Promise<{ slug: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/sign-in");
 
-  const { groupId } = await params;
+  const { slug } = await params;
+  const groupId = await getGroupIdFromSlug(slug);
+  if (!groupId) redirect("/groups");
 
   let data;
   try {
