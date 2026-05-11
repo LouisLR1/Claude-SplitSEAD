@@ -91,7 +91,9 @@ export async function getGroupPayments(groupId: string) {
 
   const payerUsers = await db
     .select({ id: users.id, name: users.name, image: users.image })
-    .from(users);
+    .from(users)
+    .innerJoin(groupMemberships, eq(groupMemberships.userId, users.id))
+    .where(eq(groupMemberships.groupId, groupId));
 
   const payerGhosts = await db
     .select({ id: ghostParticipants.id, name: ghostParticipants.name })
