@@ -14,12 +14,14 @@
 - .env.example documented
 - Live deploy confirmed
 
-## Phase 1 — Data model and authentication 🔄
-- [ ] Full Drizzle schema (all tables upfront)
-- [ ] Run migration against Neon
-- [ ] Auth.js v5 Google OAuth wired up
-- [ ] Sign in / sign out working
-- [ ] Empty "Your groups" page for signed-in users
+## Phase 1 — Data model and authentication ✅
+- Full Drizzle schema defined (all tables upfront, including Phase 6+ tables)
+- Migration pushed to Neon (all tables created)
+- Auth.js v5 Google OAuth wired up with Drizzle adapter
+- Sign in / sign out working
+- Route protection via proxy (Next.js 16 middleware)
+- Empty "Your groups" page for signed-in users
+- Note: scaffolded with Next.js 16.2.6 (latest at time of setup); middleware renamed to proxy per v16 convention
 
 ## Phase 2 — Groups and members
 ## Phase 3 — Manual payments and balance dashboard
