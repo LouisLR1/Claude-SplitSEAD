@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { deletePayment } from "@/actions/payments";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -12,7 +10,7 @@ interface Payment {
   description: string;
   amountInCents: number;
   category: string;
-  date: Date;
+  date: string;
   payerUser: { id: string; name: string | null } | null;
   payerGhost: { id: string; name: string } | null;
 }
@@ -32,7 +30,7 @@ function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: string): string {
   return new Date(date).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -48,8 +46,6 @@ export function PaymentList({
   payments: Payment[];
   currency: string;
 }) {
-  const router = useRouter();
-
   if (payments.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-12 text-center">

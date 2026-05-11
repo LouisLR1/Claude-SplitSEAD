@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { ghostParticipants, groupMemberships, payments, paymentSplits, users } from "@/db/schema";
 import { splitEqually } from "@/lib/splits";
-import { and, eq } from "drizzle-orm";
+import { asc, and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 type ParticipantRef =
@@ -62,7 +62,6 @@ export async function createPayment(
     await tx.insert(paymentSplits).values(splitRows);
   });
 
-  revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }
 
@@ -90,7 +89,7 @@ export async function getGroupPayments(groupId: string) {
     .select()
     .from(payments)
     .where(eq(payments.groupId, groupId))
-    .orderBy(payments.date, payments.createdAt);
+    .orderBy(asc(payments.date), asc(payments.createdAt));
 
   const payerUsers = await db
     .select({ id: users.id, name: users.name, image: users.image })
@@ -105,7 +104,11 @@ export async function getGroupPayments(groupId: string) {
   const ghostMap = new Map(payerGhosts.map((g) => [g.id, g]));
 
   return rows.map((p) => ({
-    ...p,
+    id: p.id,
+    description: p.description,
+    amountInCents: p.amountInCents,
+    category: p.category,
+    date: p.date.toISOString(),
     payerUser: p.payerUserId ? (userMap.get(p.payerUserId) ?? null) : null,
     payerGhost: p.payerGhostId ? (ghostMap.get(p.payerGhostId) ?? null) : null,
   }));
