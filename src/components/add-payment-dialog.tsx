@@ -173,7 +173,7 @@ export function AddPaymentDialog({
             <Label>Category</Label>
             <Select value={category} onValueChange={(v) => v && setCategory(v)}>
               <SelectTrigger>
-                <SelectValue />
+                <span className="flex-1 text-left text-sm">{category}</span>
               </SelectTrigger>
               <SelectContent>
                 {CATEGORIES.map((c) => (
@@ -190,7 +190,10 @@ export function AddPaymentDialog({
             <Label>Paid by</Label>
             <Select value={payerId} onValueChange={(v) => v && setPayerId(v)}>
               <SelectTrigger>
-                <SelectValue />
+                <span className="flex-1 text-left text-sm">
+                  {members.find((m) => m.id === payerId)?.name ?? "Select payer"}
+                  {payerId === currentUserId ? " (you)" : ""}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
