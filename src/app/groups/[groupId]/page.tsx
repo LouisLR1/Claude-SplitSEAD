@@ -9,10 +9,14 @@ import {
   removeGhostFromGroup,
   deleteGroup,
 } from "@/actions/groups";
+import { getGroupPayments } from "@/actions/payments";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import { AddGhostDialog } from "@/components/add-ghost-dialog";
+import { AddPaymentDialog } from "@/components/add-payment-dialog";
+import { PaymentList } from "@/components/payment-list";
+import { BalanceDashboard } from "@/components/balance-dashboard";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getAppUrl } from "@/lib/url";
@@ -47,8 +51,39 @@ export default async function GroupPage({
     allBalancesZero,
   } = data;
 
+  const payments = await getGroupPayments(groupId);
+
   const appUrl = getAppUrl();
   const joinUrl = invite ? `${appUrl}/join/${invite.token}` : null;
+
+  // Build flat member list for payment dialog and balance dashboard
+  const allMembers = [
+    ...memberships.map(({ user }) => ({
+      id: user.id,
+      name: user.name ?? "Unknown",
+      type: "user" as const,
+    })),
+    ...ghosts.map((g) => ({
+      id: g.id,
+      name: g.name,
+      type: "ghost" as const,
+    })),
+  ];
+
+  const balanceEntries = [
+    ...memberships.map(({ user }) => ({
+      id: user.id,
+      name: user.name ?? "Unknown",
+      type: "user" as const,
+      balanceInCents: memberBalances[user.id] ?? 0,
+    })),
+    ...ghosts.map((g) => ({
+      id: g.id,
+      name: g.name,
+      type: "ghost" as const,
+      balanceInCents: ghostBalances[g.id] ?? 0,
+    })),
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,6 +103,29 @@ export default async function GroupPage({
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-10 space-y-8">
+        {/* Balances */}
+        <section>
+          <h2 className="font-semibold text-foreground mb-4">Balances</h2>
+          <BalanceDashboard balances={balanceEntries} currency={group.currency} />
+        </section>
+
+        {/* Payments */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground">Payments</h2>
+            <AddPaymentDialog
+              groupId={group.id}
+              members={allMembers}
+              currentUserId={currentUserId}
+            />
+          </div>
+          <PaymentList
+            groupId={group.id}
+            payments={payments}
+            currency={group.currency}
+          />
+        </section>
+
         {/* Members */}
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -234,16 +292,6 @@ export default async function GroupPage({
             </div>
           </section>
         )}
-
-        {/* Payments placeholder */}
-        <section>
-          <h2 className="font-semibold text-foreground mb-4">Payments</h2>
-          <div className="rounded-xl border border-border bg-card p-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              No payments yet. Add one to get started.
-            </p>
-          </div>
-        </section>
 
         {/* Danger zone — admin only */}
         {isAdmin && (
