@@ -23,7 +23,16 @@
 - Empty "Your groups" page for signed-in users
 - Note: scaffolded with Next.js 16.2.6 (latest at time of setup); middleware renamed to proxy per v16 convention
 
-## Phase 2 — Groups and members
+## Phase 2 — Groups and members ✅
+- Create group (name + currency) with server action
+- Permanent invite link auto-created per group (nanoid token)
+- Invite by email via Resend with dark-themed HTML template
+- Join page at /join/[token] — works for signed-out users (redirects to Google auth then back)
+- Add ghost participants (name + optional email)
+- Group detail page: member list, ghost list, invite link, payments placeholder
+- Groups list page with empty state
+- Note: using @base-ui/react dialog (shadcn v4), uses render prop not asChild
+
 ## Phase 3 — Manual payments and balance dashboard
 ## Phase 4 — Receipt photo upload
 ## Phase 5 — Auto-categorization
