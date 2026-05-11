@@ -6,6 +6,7 @@ import { ghostParticipants, groupMemberships, groups, invites, users } from "@/d
 import { sendGroupInviteEmail } from "@/lib/email";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createGroup(formData: FormData) {
@@ -71,6 +72,7 @@ export async function addGhostParticipant(groupId: string, formData: FormData) {
 
   await db.insert(ghostParticipants).values({ groupId, name, email });
 
+  revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }
 

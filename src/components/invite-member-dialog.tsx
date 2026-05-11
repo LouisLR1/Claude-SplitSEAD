@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { inviteMemberByEmail } from "@/actions/groups";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Mail } from "lucide-react";
 
 export function InviteMemberDialog({ groupId }: { groupId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -27,6 +29,7 @@ export function InviteMemberDialog({ groupId }: { groupId: string }) {
       setTimeout(() => {
         setOpen(false);
         setSent(false);
+        router.refresh();
       }, 1500);
     } finally {
       setPending(false);

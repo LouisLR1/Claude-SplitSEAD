@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { addGhostParticipant } from "@/actions/groups";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 
 export function AddGhostDialog({ groupId }: { groupId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -23,6 +25,7 @@ export function AddGhostDialog({ groupId }: { groupId: string }) {
     try {
       await addGhostParticipant(groupId, formData);
       setOpen(false);
+      router.refresh();
     } finally {
       setPending(false);
     }
