@@ -19,11 +19,17 @@ export function AddGhostDialog({ groupId }: { groupId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
+    setError(null);
     try {
-      await addGhostParticipant(groupId, formData);
+      const result = await addGhostParticipant(groupId, formData);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
       setOpen(false);
       router.refresh();
     } finally {
@@ -32,7 +38,7 @@ export function AddGhostDialog({ groupId }: { groupId: string }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(null); }}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <UserPlus className="h-4 w-4 mr-1" />
         Add guest
@@ -62,6 +68,9 @@ export function AddGhostDialog({ groupId }: { groupId: string }) {
               placeholder="alex@example.com"
             />
           </div>
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Adding…" : "Add guest"}
           </Button>

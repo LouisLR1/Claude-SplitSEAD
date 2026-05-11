@@ -60,15 +60,32 @@ export async function inviteMemberByEmail(groupId: string, formData: FormData) {
   return { ok: true };
 }
 
-export async function addGhostParticipant(groupId: string, formData: FormData) {
+export async function addGhostParticipant(
+  groupId: string,
+  formData: FormData
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const name = (formData.get("name") as string).trim();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase() || null;
-  if (!name) throw new Error("Name is required");
+  if (!name) return { ok: false, error: "Name is required" };
 
   await assertMember(groupId, session.user.id);
+
+  const [existingGhosts, existingMembers] = await Promise.all([
+    db.select({ name: ghostParticipants.name }).from(ghostParticipants).where(eq(ghostParticipants.groupId, groupId)),
+    db.select({ name: users.name }).from(groupMemberships).innerJoin(users, eq(groupMemberships.userId, users.id)).where(eq(groupMemberships.groupId, groupId)),
+  ]);
+
+  const taken = new Set([
+    ...existingGhosts.map((g) => g.name.toLowerCase()),
+    ...existingMembers.map((m) => (m.name ?? "").toLowerCase()),
+  ]);
+
+  if (taken.has(name.toLowerCase())) {
+    return { ok: false, error: `"${name}" is already in this group` };
+  }
 
   await db.insert(ghostParticipants).values({ groupId, name, email });
 
