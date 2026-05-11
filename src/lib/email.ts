@@ -1,8 +1,8 @@
 import { Resend } from "resend";
+import { getAppUrl } from "@/lib/url";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export async function sendGroupInviteEmail({
   to,
@@ -35,7 +35,7 @@ export async function sendGroupInviteEmail({
         <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0"/>
         <p style="color:#8b8fa8;font-size:12px;margin:0">
           SplitSEAD — split expenses with friends.
-          <a href="${APP_URL}/settings/notifications" style="color:#6366f1">Unsubscribe</a>
+          <a href="${getAppUrl()}/settings/notifications" style="color:#6366f1">Unsubscribe</a>
         </p>
       </div>
     `,

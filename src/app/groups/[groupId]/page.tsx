@@ -15,6 +15,7 @@ import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import { AddGhostDialog } from "@/components/add-ghost-dialog";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { getAppUrl } from "@/lib/url";
 import { ChevronLeft, Ghost, ShieldCheck, Trash2, UserMinus } from "lucide-react";
 
 export default async function GroupPage({
@@ -46,7 +47,7 @@ export default async function GroupPage({
     allBalancesZero,
   } = data;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const joinUrl = invite ? `${appUrl}/join/${invite.token}` : null;
 
   return (

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { ghostParticipants, groupMemberships, groups, invites, payments, paymentSplits, users } from "@/db/schema";
 import { sendGroupInviteEmail } from "@/lib/email";
+import { getAppUrl } from "@/lib/url";
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
@@ -48,7 +49,7 @@ export async function inviteMemberByEmail(groupId: string, formData: FormData) {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
   const [invite] = await db.select().from(invites).where(eq(invites.groupId, groupId));
 
-  const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join/${invite.token}`;
+  const joinUrl = `${getAppUrl()}/join/${invite.token}`;
 
   await sendGroupInviteEmail({
     to: email,
