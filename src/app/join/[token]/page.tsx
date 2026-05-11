@@ -64,7 +64,7 @@ export default async function JoinPage({
       )
     );
 
-  if (existing) redirect(`/groups/${row.group.id}`);
+  if (existing) redirect(`/groups/${row.group.slug}`);
 
   // Unclaimed ghosts (no real user linked yet)
   const ghosts = await db

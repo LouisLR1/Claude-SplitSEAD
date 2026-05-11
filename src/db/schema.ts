@@ -7,6 +7,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export const groups = pgTable("group", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
+  slug: text("slug").notNull().unique().default(sql`gen_random_uuid()`),
   currency: text("currency").notNull().default("EUR"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   createdById: text("created_by_id")

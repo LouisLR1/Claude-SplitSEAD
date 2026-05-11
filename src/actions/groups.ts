@@ -10,6 +10,17 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+function toSlug(name: string): string {
+  const base = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40) || "group";
+  return `${base}-${nanoid(6)}`;
+}
+
 export async function createGroup(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -20,7 +31,7 @@ export async function createGroup(formData: FormData) {
 
   const [group] = await db
     .insert(groups)
-    .values({ name, currency, createdById: session.user.id })
+    .values({ name, slug: toSlug(name), currency, createdById: session.user.id })
     .returning();
 
   await db.insert(groupMemberships).values({
@@ -34,7 +45,7 @@ export async function createGroup(formData: FormData) {
     token: nanoid(12),
   });
 
-  redirect(`/groups/${group.id}`);
+  redirect(`/groups/${group.slug}`);
 }
 
 export async function inviteMemberByEmail(groupId: string, formData: FormData) {
@@ -90,7 +101,7 @@ export async function addGhostParticipant(
 
   await db.insert(ghostParticipants).values({ groupId, name, email });
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
   return { ok: true };
 }
 
@@ -191,7 +202,7 @@ export async function joinGroupAsNew(groupId: string) {
     });
   }
 
-  redirect(`/groups/${groupId}`);
+  redirect(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 export async function joinGroupAsGhost(groupId: string, ghostId: string) {
@@ -199,41 +210,35 @@ export async function joinGroupAsGhost(groupId: string, ghostId: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
   const userId = session.user.id;
 
-  await db.transaction(async (tx) => {
-    // Rewrite any payment splits from ghost → this user
-    await tx
-      .update(paymentSplits)
-      .set({ userId, ghostId: null })
-      .where(eq(paymentSplits.ghostId, ghostId));
+  await db
+    .update(paymentSplits)
+    .set({ userId, ghostId: null })
+    .where(eq(paymentSplits.ghostId, ghostId));
 
-    // Rewrite any payments where this ghost was the payer
-    await tx
-      .update(payments)
-      .set({ payerUserId: userId, payerGhostId: null })
-      .where(eq(payments.payerGhostId, ghostId));
+  await db
+    .update(payments)
+    .set({ payerUserId: userId, payerGhostId: null })
+    .where(eq(payments.payerGhostId, ghostId));
 
-    // Delete the ghost
-    await tx
-      .delete(ghostParticipants)
-      .where(eq(ghostParticipants.id, ghostId));
+  await db
+    .delete(ghostParticipants)
+    .where(eq(ghostParticipants.id, ghostId));
 
-    // Add as real member if not already
-    const [existing] = await tx
-      .select()
-      .from(groupMemberships)
-      .where(
-        and(
-          eq(groupMemberships.groupId, groupId),
-          eq(groupMemberships.userId, userId)
-        )
-      );
+  const [existing] = await db
+    .select()
+    .from(groupMemberships)
+    .where(
+      and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      )
+    );
 
-    if (!existing) {
-      await tx.insert(groupMemberships).values({ groupId, userId, role: "member" });
-    }
-  });
+  if (!existing) {
+    await db.insert(groupMemberships).values({ groupId, userId, role: "member" });
+  }
 
-  redirect(`/groups/${groupId}`);
+  redirect(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 // ─── Balance helpers ──────────────────────────────────────────────────────────
@@ -309,7 +314,7 @@ export async function setMemberRole(
       )
     );
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 export async function removeMember(groupId: string, targetUserId: string) {
@@ -329,7 +334,7 @@ export async function removeMember(groupId: string, targetUserId: string) {
       )
     );
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 export async function removeGhostFromGroup(groupId: string, ghostId: string) {
@@ -344,7 +349,7 @@ export async function removeGhostFromGroup(groupId: string, ghostId: string) {
     .delete(ghostParticipants)
     .where(eq(ghostParticipants.id, ghostId));
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
 }
 
 export async function deleteGroup(groupId: string) {
@@ -360,6 +365,11 @@ export async function deleteGroup(groupId: string) {
   redirect("/groups");
 }
 
+async function getGroupSlug(groupId: string): Promise<string> {
+  const [g] = await db.select({ slug: groups.slug }).from(groups).where(eq(groups.id, groupId));
+  return g?.slug ?? groupId;
+}
+
 async function assertAdmin(groupId: string, userId: string) {
   const [membership] = await db
     .select()
@@ -371,6 +381,11 @@ async function assertAdmin(groupId: string, userId: string) {
       )
     );
   if (membership?.role !== "admin") throw new Error("Admin access required");
+}
+
+export async function getGroupIdFromSlug(slug: string): Promise<string | null> {
+  const [g] = await db.select({ id: groups.id }).from(groups).where(eq(groups.slug, slug));
+  return g?.id ?? null;
 }
 
 export async function getUserGroups() {

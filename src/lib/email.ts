@@ -1,7 +1,9 @@
 import { Resend } from "resend";
 import { getAppUrl } from "@/lib/url";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY ?? "re_placeholder");
+}
 const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
 export async function sendGroupInviteEmail({
@@ -15,7 +17,7 @@ export async function sendGroupInviteEmail({
   groupName: string;
   joinUrl: string;
 }) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `SplitSEAD <${FROM}>`,
     to,
     subject: `${inviterName} invited you to "${groupName}" on SplitSEAD`,

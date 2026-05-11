@@ -33,7 +33,14 @@
 - Groups list page with empty state
 - Note: using @base-ui/react dialog (shadcn v4), uses render prop not asChild
 
-## Phase 3 — Manual payments and balance dashboard
+## Phase 3 — Manual payments and balance dashboard ✅
+- Add payment form: amount, date, description, category, payer, participants (checkboxes)
+- Equal penny-rounding split (splitEqually utility, tested)
+- Payment list with delete (confirm dialog)
+- Balance dashboard: net balances tab + "who pays whom" debt simplification tab
+- Pure utility functions with 8 unit tests (Vitest)
+- Pretty group URLs: /groups/[slug] instead of UUID
+- Note: neon-http driver does not support transactions; use sequential queries instead
 ## Phase 4 — Receipt photo upload
 ## Phase 5 — Auto-categorization
 ## Phase 6 — Email notifications
