@@ -43,3 +43,52 @@ export async function sendGroupInviteEmail({
     `,
   });
 }
+
+
+export async function sendPaymentNotificationEmail({
+  to,
+  payerName,
+  groupName,
+  description,
+  amountInCents,
+  currency,
+  groupUrl,
+}: {
+  to: string;
+  payerName: string;
+  groupName: string;
+  description: string;
+  amountInCents: number;
+  currency: string;
+  groupUrl: string;
+}) {
+  const amount = (amountInCents / 100).toFixed(2);
+  await getResend().emails.send({
+    from: `SplitSEAD <${FROM}>`,
+    to,
+    subject: `New expense in "${groupName}" on SplitSEAD`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0c0e14;color:#f0f2ff;border-radius:12px">
+        <h1 style="font-size:20px;font-weight:600;margin:0 0 8px">New expense added</h1>
+        <p style="color:#8b8fa8;margin:0 0 24px">
+          <strong style="color:#f0f2ff">${payerName}</strong> added an expense to
+          <strong style="color:#f0f2ff">${groupName}</strong>.
+        </p>
+        <div style="background:#1a1d2e;border-radius:8px;padding:16px;margin:0 0 24px">
+          <p style="margin:0 0 4px;color:#8b8fa8;font-size:12px">DESCRIPTION</p>
+          <p style="margin:0 0 16px;font-size:16px">${description}</p>
+          <p style="margin:0 0 4px;color:#8b8fa8;font-size:12px">AMOUNT</p>
+          <p style="margin:0;font-size:20px;font-weight:600;color:#6366f1">${currency} ${amount}</p>
+        </div>
+        <a href="${groupUrl}" style="display:inline-block;background:#6366f1;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+          View group
+        </a>
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0"/>
+        <p style="color:#8b8fa8;font-size:12px;margin:0">
+          SplitSEAD — split expenses with friends.
+          <a href="${getAppUrl()}/settings/notifications" style="color:#6366f1">Unsubscribe</a>
+        </p>
+      </div>
+    `,
+  });
+}
