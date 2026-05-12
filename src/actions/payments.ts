@@ -2,6 +2,8 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
+import { sendPaymentNotificationEmail } from "@/lib/email";
+import { getAppUrl } from "@/lib/url";
 import { ghostParticipants, groupMemberships, groups, payments, paymentSplits, users } from "@/db/schema";
 import { splitEqually } from "@/lib/splits";
 import { asc, and, eq } from "drizzle-orm";
@@ -58,8 +60,42 @@ export async function createPayment(
     amountInCents: splits.get(p.id) ?? 0,
   }));
 
-  await db.insert(paymentSplits).values(splitRows);
+await db.insert(paymentSplits).values(splitRows);
 
+  // Send email notifications to all participants except the person who created the payment
+  const session2 = await auth();
+  const creatorId = session2?.user?.id;
+
+  const memberParticipants = data.participants.filter((p) => p.type === "user" && p.id !== creatorId);
+
+  if (memberParticipants.length > 0) {
+    const group = await db.select().from(groups).where(eq(groups.id, groupId)).then((r) => r[0]);
+    const payer = data.payerUserId
+      ? await db.select({ name: users.name }).from(users).where(eq(users.id, data.payerUserId)).then((r) => r[0])
+      : null;
+    const payerName = payer?.name ?? "Someone";
+    const groupUrl = `${getAppUrl()}/groups/${group.slug}`;
+
+    for (const participant of memberParticipants) {
+      const [u] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, participant.id));
+      if (u?.email) {
+        await sendPaymentNotificationEmail({
+          to: u.email,
+          payerName,
+          groupName: group.name,
+          description: data.description,
+          amountInCents: data.amountInCents,
+          currency: group.currency,
+          groupUrl,
+        });
+      }
+    }
+  }
+
+  revalidatePath(`/groups/${await getGroupSlug(groupId)}`);
   return { ok: true };
 }
 
